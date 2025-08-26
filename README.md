@@ -1,103 +1,114 @@
 # TFA-GT-433MHz-Decoder
 
 ## Introduction
-This project contains several codes, which can decode TFA Dostmann 30.3208.02 and Global Tronics GT-WT-02 weather sensor and send their data to an mqtt server. 
-I use the fully equiped code (Esp8266_TFA_GT_MQTT_DHT_EEPROM) to send all Temperature sensors data to Node-Red to store them in an Influx database and visualize them.
+This project provides several sketches that can **receive and decode signals** from  
+- **TFA Dostmann 30.3208.02**  
+- **Global Tronics GT-WT-02**  
 
-My project has an big advantage to other library. Because most decoder librarys for 433MHz receivers decode the signal in the Interrupt, which isnt ideal, because it slows down other tasks. My code uses an Ringbuffer, which is filled by the Interupt, and later decoded in the loop() function.
+weather sensors and publish their data to an **MQTT server**.  
+
+I mainly use the full-featured sketch (`Esp8266_TFA_GT_MQTT_DHT_EEPROM`) to send all temperature and humidity data to **Node-RED**, store it in an **InfluxDB**, and visualize it on the Node-Red dashboard.
+
+### Why this project is different
+Most 433 MHz decoder libraries decode signals **inside the interrupt service routine (ISR)**, which can block other tasks.  
+This project uses a **ring buffer**: the ISR only stores pulse data, while decoding happens later in `loop()`.  
+This keeps the ISR short and improves system stability.
+
+---
 
 ## Hardware
+
 ### MCUs
-All codes where written for Esp8266, it should work with Esp32 and Arduino AVR boards.
-You may need to do some changes:
+All sketches are written for **ESP8266**, but they should also work with **ESP32** or **Arduino AVR** boards with minor modifications:
 
-AVR:
-- changing ISR to standart function
-- changing oder delting Serial.printf() functions
-- changing to standart digitalRead() function in handleInterrupt() function
+**AVR boards**
+- Change `ICACHE_RAM_ATTR` ISR to standard `ISR` function  
+- Replace `Serial.printf()` with `Serial.print()`  
+- Replace direct `GPIO_REG_READ` with `digitalRead()`  
 
-Esp32:
-- changing wifi library to Esp32 wifi
+**ESP32**
+- Use the ESP32 WiFi library instead of the ESP8266 one  
 
-I have not tested it on Arduino Avr or Esp32.
-Other MCUs should be compatible with other changes.
+I have **not tested** the code on AVR or ESP32 yet. Other MCUs should also be compatible with minor adjustments.
 
-###Receiver
-Any standard 433 MHz receiver module should work.
+### 433 MHz Receiver
+Any standard 433 MHz receiver module should work.  
+Connect it to an **interrupt-capable pin**:  
+- Arduino Uno/Nano: **D2** or **D3**  
 
-Make sure to connect the receiver to an interrupt-capable pin:
+### Weather Sensors
+Tested sensors:  
+- TFA Dostmann 30.3208.02  
+- Global Tronics GT-WT-02  
 
-* On Arduino Uno/Nano: use **D2** or **D3**
+Other sensors may also work (not tested):  
 
-###Temperature sensors
-- TFA Dostmann 30.3208.02
-- Global Tronics GT-WT-02
+**Similar to TFA (Manchester-encoded):**  
+- Ambient Weather F007TH Thermo-Hygrometer  
+- Ambient Weather F012TH Indoor/Display Thermo-Hygrometer  
+- SwitchDoc Labs F016TH  
 
-These sensors may also work (not tested):
-similar protocoll to TFA:
-* Ambient Weather F007TH Thermo-Hygrometer
-* Ambient Weather F012TH Indoor/Display Thermo-Hygrometer
-* SwitchDoc Labs F016TH
-you may need to change the TFA_TYPE define or the MANCHESTER_CLOCK define
+> You may need to adjust the `TFA_TYPE` or `MANCHESTER_CLOCK` definitions.  
 
-similar protocoll to GT:
-* other GT-WT-02 sensors from different manufactures like Lidl AURIO or Teknihall 
+**Similar to GT (OOK-encoded):**  
+- Other GT-WT-02 clones from Lidl (AURIO), Teknihall, etc.  
 
-### additional local sensor
+### Additional Local Sensor
+- DHT11  
+- DHT22  
 
-* DHT11 
-* DHT22
+---
 
-## Code 
-currently thera are 6 Codes available:
+## Available Code Examples
+Currently, there are six sketches:
 
-* Esp8266_GT
-* Esp8266_TFA
-* Esp8266_TFA_GT
-* Esp8266_TFA_GT_MQTT
-* Esp8266_TFA_GT_MQTT_DHT
-* Esp8266_TFA_GT_MQTT_DHT_EEPROM
+- `Esp8266_GT`  
+  Only GT decoder  
 
-Esp8266_GT and Esp8266_TFA
-contain only the decoding algorithm for each sensor
+- `Esp8266_TFA`  
+  Only TFA decoder  
 
-Esp8266_TFA_GT
-contains both sensors in one code and uses one receiver
+- `Esp8266_TFA_GT`  
+  Both decoders combined, one receiver  
 
-Esp8266_TFA_GT_MQTT
-adds wifi + mqtt functionality
-the data is send as an JSON in this topic: TFA433/data
-The data looks like this: 
+- `Esp8266_TFA_GT_MQTT`  
+  Adds WiFi + MQTT functionality  
+  Data is published as JSON to topic `TFA433/data`, e.g.:  
+  ```json
+  {"ID":221,"Channel":1,"Temperature":23.1,"Humidity":54,"Battery":1,"Type":69}
+  
+- `Esp8266_TFA_GT_MQTT_DHT`  
+  Adds DHT support
 
-{"ID":221,"Channel":1,"Temperature":23.1,"Humidity":54,"Battery":1,"Type":69}
+- `Esp8266_TFA_GT_MQTT_DHT_EEPROM`  
+  Adds EEPROM support to store offsets.
+  Offsets can be updated via MQTT commands to TFA433/cmd:
+  * Request current offsets:
+    {"showOffsets":1}
+    Response on TFA433/msg
+  * Update an offset:
+    {"channel":1,"type":"temp","offset":0.5}
+    {"channel":1,"type":"hum","offset":-3}
+  Default offsets can be hardcoded in:
+  float Default_Temp_Adjust[8] = { ... };
+  float Default_Hum_Adjust[8] = { ... };
 
-Esp8266_TFA_GT_MQTT_DHT
-adds DHT support
+## Channel Setup
 
-Esp8266_TFA_GT_MQTT_DHT_EEPROM
-adds EEPROM to store offset variables, which canbe changed with mqtt commands:
+My setup uses 8 channels:
 
-publish "{"showOffsets":1}" to TFA433/cmd to receive current offset values on TFA433/msg
-publish "{"channel": 1,"type": "temp","offset": 0}" or "{"channel": 1,"type": "hum","offset": 0}" to TFA433/cmd to change the offset variables.
-The Esp answers on TFA433/msg to first send the old offsets followed by the new offsets
+* 6 × TFA (up to 8 supported)
+* 1 × DHT (max 1)
+* 1 × GT (up to 3 supported)
 
-it is possible to hard-code default values for the offsets, which are applied, if the EEPROM_INIT_MARKER is changed
-change these arrays:
+You can adjust:
 
-float Default_Temp_Adjust[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
-float Default_Hum_Adjust[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
-
-### additional information for the channels
-my setup uses 8 channels:
-6 TFA channals (max: 8)
-1 DHT channel  (max: 1)
-1 GT channel  (max: 3)
-
-if you have another setup with differnt amounts off sensors, you can change the DHT channel in the readDHT() function and you can change the  CHANNEL_OFFSET define, to change the GT channels
+* DHT channel in readDHT()
+* GT channel offset via CHANNEL_OFFSET
 
 ## Pulse Collection
 
-For the Pulse Collection i use an change interrupt, which feeds this ringbuffer:
+Pulses are captured via a change interrupt and stored in a ring buffer:
 
 struct PulsePair {
   uint32_t time;
@@ -111,57 +122,63 @@ struct PulseRingBuffer {
   volatile uint16_t count = 0;
 };
 
-PulseRingBuffer pulseBuffer;
+This works like a software version of the ESP32 RMT peripheral.
+If the buffer overflows, a flag is set and all additional data is lost.
 
-this is somewhat like an software version of the RMT feature on ESP32.
-You could probably change to code to use the RMT buffer, but this a bigger change to the code.
+Every 250 ms the buffer is copied and decoded.
 
-If the buffer overflows it sets the bufferOverflow flag and prints a message to the Serial output. durring an overflow event, all addtional data is lost.
-The buffer is only emptyed by the copyPulseBuffer() function, which is called every 250ms.
-
-The big advantage by this system is, that the Interrupt Service Routine (ISR) stays short, instead off decoding the signal in the ISR, my code saves the pulses and later decodes them.
+Advantage: The ISR is very short – only storing pulses, no decoding.
 
 ## TFA Decoder
 
-The TFA Dostmann 30.3208 uses an Manchester encoded signal.
-The protocoll is described here: 
-* https://manual.pilight.org/protocols/433.92/weather/tfa2017.html (not the Dostmann TFA 30.3200 protocoll)
-* https://github.com/merbanan/rtl_433/blob/master/src/devices/ambient_weather.c
+The TFA Dostmann 30.3208 uses a Manchester-encoded signal.
 
-The decoding off the Pulses is designd by myself, but it is heavly inspired by this Project: https://github.com/victornpb/manch_decode/tree/gh-pages
-The decogin off the Bytes is inspired by this library: https://github.com/d10i/TFA433
-which i firstly improved to be able to run on ESP boards: https://github.com/Spb2005/TFAReceiver/tree/main
-and now further improved in this repo
+### Protocol references
+  * https://manual.pilight.org/protocols/433.92/weather/tfa2017.html
+  * https://github.com/merbanan/rtl_433/blob/master/src/devices/ambient_weather.c
+
+### Implementation notes
+  * Manchester decoding logic is based on:
+  * https://github.com/victornpb/manch_decode
+  * Byte decoding inspired by:
+  * https://github.com/d10i/TFA433
+  * and improved for ESP boards:
+  * https://github.com/Spb2005/TFAReceiver
 
 ## GT Decoder
 
-The Gloabal Tronics GT-WT-02 uses an simpler On Off Keying encoded signal.
-The protocoll is described here: 
-* https://manual.pilight.org/protocols/433.92/weather/teknihall.html
-* https://github.com/merbanan/rtl_433/blob/master/src/devices/gt_wt_02.c
+The GT-WT-02 uses a simpler OOK pulse-length encoding.
 
-I wrote the decoding off the Pulses and the Bytes by myself.
+### Protocol references
+  * https://manual.pilight.org/protocols/433.92/weather/teknihall.html
+  * https://github.com/merbanan/rtl_433/blob/master/src/devices/gt_wt_02.c
+  The decoding of pulses and bytes was written from scratch for this project.
 
-## additional Decoders
+## Extending with Additional Decoders
 
-You can add your own decoding algorithms. 
-I recommend to make an function where the decoding happens (Like the checkTFA() and checkGT() functions). and put this function into the checkBuffer() function, which is called every 250 ms and emptys the ringbuffer. 
-
+You can add custom decoders.
+Recommendation:
+  * Create a function (similar to checkTFA() or checkGT())
+  * Call it inside checkBuffer(), which runs every 250 ms and processes the ring buffer
+  
 ## Inspirations and References
-As already menchiond i used the Projects as Inspirations and References:
 
-Protocolls:
-TFA
-* https://manual.pilight.org/protocols/433.92/weather/tfa2017.html (not the Dostmann TFA 30.3200 protocoll)
-* https://github.com/merbanan/rtl_433/blob/master/src/devices/ambient_weather.c
-GT
-* https://manual.pilight.org/protocols/433.92/weather/teknihall.html
-* https://github.com/merbanan/rtl_433/blob/master/src/devices/gt_wt_02.c
-Code
-* https://github.com/victornpb/manch_decode/tree/gh-pages
-* https://github.com/d10i/TFA433
+This project was inspired by and builds upon
+### Protocols:
 
+  * TFA: https://manual.pilight.org/protocols/433.92/weather/tfa2017.html
+  * TFA: https://github.com/merbanan/rtl_433/blob/master/src/devices/ambient_weather.c
+  * GT: https://manual.pilight.org/protocols/433.92/weather/teknihall.html
+  * GT: https://github.com/merbanan/rtl_433/blob/master/src/devices/gt_wt_02.c
+
+### Code:
+
+  * Manchester decoding https://github.com/victornpb/manch_decode
+  * TFA Decoding https://github.com/d10i/TFA433
+  
 ## Conclusion
-- Summary of what works  
-- Known limitations  
-- Possible future improvements (turning into a proper Arduino library, supporting more sensors, etc.)  
+
+  * ✅ Decoding for TFA and GT sensors is working reliably
+  * ✅ MQTT + DHT + EEPROM support included
+  * ⚠️ Not yet tested on ESP32/AVR
+  * ⚠️ Currently only provided as sketches (not Arduino libraries) 
