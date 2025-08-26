@@ -160,7 +160,7 @@ Every 250 ms, the buffer is copied and decoded.
 The **TFA Dostmann 30.3208** uses a Manchester-encoded signal.
 
 ### Protocol References
-- [pilight TFA protocol](https://manual.pilight.org/protocols/433.92/weather/tfa2017.html) (not TFA 30.3200)
+- [pilight TFA protocol](https://manual.pilight.org/protocols/433.92/weather/tfa2017.html) (not the "TFA 30.3200" Protocol)
 - [rtl_433 TFA protocol](https://github.com/merbanan/rtl_433/blob/master/src/devices/ambient_weather.c)
 
 ### Implementation Notes
