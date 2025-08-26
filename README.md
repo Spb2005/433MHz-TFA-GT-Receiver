@@ -57,8 +57,6 @@ Similar to **GT (OOK-encoded):**
 - DHT11  
 - DHT22  
 
----
-
 ## Required Libraries
 
 Make sure the following libraries are installed in the Arduino IDE (via Library Manager or manually):
@@ -67,8 +65,6 @@ Make sure the following libraries are installed in the Arduino IDE (via Library 
 - **ESP8266WiFi.h** (from ESP8266 core)  
 - **PubSubClient** by Nick O’Leary  
 - **DHT sensor library** by Adafruit  
-
----
 
 ## Available Code Examples
 
@@ -97,17 +93,15 @@ Currently, there are six sketches:
   Offsets can be updated via MQTT commands to `TFA433/cmd`:  
   - Request current offsets:  
     ```json
-    {"showOffsets":1}
-    ```
+    {"showOffsets":1} ```
     Response is published on `TFA433/msg`.  
+	
   - Update an offset:  
     ```json
-    {"channel":1,"type":"temp","offset":0.5}
-	```
+    {"channel":1,"type":"temp","offset":0.5}```
 	or
 	```json
-    {"channel":1,"type":"hum","offset":-3}
-    ```
+    {"channel":1,"type":"hum","offset":-3}```
     The ESP responds first with the old offsets, then with the updated values.
 	```json
 	{"phase":"show","Temp_Adjust":[0,0,0,0,0,0,0,0],"Hum_Adjust":[0,0,0,0,0,0,0,0]}
