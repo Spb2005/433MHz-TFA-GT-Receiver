@@ -33,7 +33,7 @@ I have **not tested** the code on AVR or ESP32 yet. Other MCUs should also be co
 
 ### 433 MHz Receiver
 Any standard 433 MHz receiver module should work.  
-Connect it to an **interrupt-capable pin**:  
+Make sure to connect the receiver to an interrupt-capable pin:
 - Arduino Uno/Nano: **D2** or **D3**  
 
 ### Weather Sensors
@@ -89,17 +89,20 @@ Currently, there are six sketches:
   * Update an offset:
     {"channel":1,"type":"temp","offset":0.5}
     {"channel":1,"type":"hum","offset":-3}
+    The Esp answers first with the old offsets followed by the new offsets.
+  
   Default offsets can be hardcoded in:
   float Default_Temp_Adjust[8] = { ... };
   float Default_Hum_Adjust[8] = { ... };
+  These are loaded, if the EEPROM_INIT_MARKER is changed
 
 ## Channel Setup
 
 My setup uses 8 channels:
 
-* 6 × TFA (up to 8 supported)
+* 6 × TFA (max 8)
 * 1 × DHT (max 1)
-* 1 × GT (up to 3 supported)
+* 1 × GT (max 3)
 
 You can adjust:
 
@@ -123,8 +126,9 @@ struct PulseRingBuffer {
 };
 
 This works like a software version of the ESP32 RMT peripheral.
-If the buffer overflows, a flag is set and all additional data is lost.
+You could probably change to code to use the RMT buffer, but this a bigger change to the code.
 
+If the buffer overflows, a flag is set and all additional data is lost.
 Every 250 ms the buffer is copied and decoded.
 
 Advantage: The ISR is very short – only storing pulses, no decoding.
@@ -140,10 +144,7 @@ The TFA Dostmann 30.3208 uses a Manchester-encoded signal.
 ### Implementation notes
   * Manchester decoding logic is based on:
   * https://github.com/victornpb/manch_decode
-  * Byte decoding inspired by:
-  * https://github.com/d10i/TFA433
-  * and improved for ESP boards:
-  * https://github.com/Spb2005/TFAReceiver
+  The decogin off the Bytes is inspired by this library: https://github.com/d10i/TFA433 which i firstly improved to be able to run on ESP boards: https://github.com/Spb2005/TFAReceiver/tree/main and now further improved in this repo
 
 ## GT Decoder
 
