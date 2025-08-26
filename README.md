@@ -2,10 +2,9 @@
 
 ## Introduction
 This project contains several codes, which can decode TFA Dostmann 30.3208.02 and Global Tronics GT-WT-02 weather sensor and send their data to an mqtt server. 
-- What this project does (receives and decodes signals from TFA Dostmann 30.3208.02 and Global Tronics GT-WT-02 weather stations)
-- Why it might be useful (integration into ESP8266/ESP32, MQTT, home automation, etc.)
+I use the fully equiped code (Esp8266_TFA_GT_MQTT_DHT_EEPROM) to send all Temperature sensors data to Node-Red to store them in an Influx database and visualize them.
 
-- Big differnz to other librarys, which decode in the ISR, while this code saves the Pulse to an ringbuffer and later decodes them
+My project has an big advantage to other library. Because most decoder librarys for 433MHz receivers decode the signal in the Interrupt, which isnt ideal, because it slows down other tasks. My code uses an Ringbuffer, which is filled by the Interupt, and later decoded in the loop() function.
 
 ## Hardware
 ### MCUs
@@ -39,6 +38,7 @@ similar protocoll to TFA:
 * Ambient Weather F007TH Thermo-Hygrometer
 * Ambient Weather F012TH Indoor/Display Thermo-Hygrometer
 * SwitchDoc Labs F016TH
+you may need to change the TFA_TYPE define or the MANCHESTER_CLOCK define
 
 similar protocoll to GT:
 * other GT-WT-02 sensors from different manufactures like Lidl AURIO or Teknihall 
@@ -67,6 +67,9 @@ contains both sensors in one code and uses one receiver
 Esp8266_TFA_GT_MQTT
 adds wifi + mqtt functionality
 the data is send as an JSON in this topic: TFA433/data
+The data looks like this: 
+
+{"ID":221,"Channel":1,"Temperature":23.1,"Humidity":54,"Battery":1,"Type":69}
 
 Esp8266_TFA_GT_MQTT_DHT
 adds DHT support
