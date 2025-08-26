@@ -94,15 +94,18 @@ Currently, there are six sketches:
   - Request current offsets:  
     ```json
     {"showOffsets":1} 
-    ```	Response is published on `TFA433/msg`.  
+    ```	
+	Response is published on `TFA433/msg`.  
 	
   - Update an offset:  
     ```json
     {"channel":1,"type":"temp","offset":0.5}
-	```	or
+	```	
+	or
 	```json
     {"channel":1,"type":"hum","offset":-3}
-    ```	The ESP responds first with the old offsets, then with the updated values.
+    ```	
+	The ESP responds first with the old offsets, then with the updated values.
 	```json
 	{"phase":"show","Temp_Adjust":[0,0,0,0,0,0,0,0],"Hum_Adjust":[0,0,0,0,0,0,0,0]}
     ```
