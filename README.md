@@ -15,8 +15,6 @@ Most 433 MHz decoder libraries decode signals **inside the interrupt service rou
 This project uses a **ring buffer**: the ISR only stores pulse data, while decoding happens later in `loop()`.  
 This keeps the ISR short and improves system stability.
 
----
-
 ## Hardware
 
 ### MCUs
@@ -30,7 +28,8 @@ All sketches are written for **ESP8266**, but they should also work with **Ardui
 **ESP32**
 - Use the ESP32 WiFi library instead of the ESP8266 one  
 
-I have **not tested** the code on AVR or ESP32 yet. Other MCUs should also be compatible with minor adjustments.
+I have **not tested** the code on AVR or ESP32 yet. 
+Other MCUs should also be compatible with minor adjustments.
 
 ### 433 MHz Receiver
 Any standard 433 MHz receiver module should work.  
@@ -104,19 +103,25 @@ Currently, there are six sketches:
   - Update an offset:  
     ```json
     {"channel":1,"type":"temp","offset":0.5}
+	```
+	or
+	```json
     {"channel":1,"type":"hum","offset":-3}
     ```
-    The ESP responds first with the old offsets, then with the updated values.  
-
+    The ESP responds first with the old offsets, then with the updated values.
+	```json
+	{"phase":"show","Temp_Adjust":[0,0,0,0,0,0,0,0],"Hum_Adjust":[0,0,0,0,0,0,0,0]}
+    ```
   Default offsets can be hardcoded in:  
   ```cpp
   float Default_Temp_Adjust[8] = { ... };
   float Default_Hum_Adjust[8]  = { ... };
-  These defaults are loaded if the EEPROM_INIT_MARKER is changed.
   ```
+  These defaults are loaded if the EEPROM_INIT_MARKER is changed.
+  
 # Channel Setup
 
-This setup uses **8 channels**:
+My setup uses **8 channels**:
 
 - 6 × TFA (up to 8 supported)  
 - 1 × DHT (up to 1 supported)  
@@ -158,28 +163,29 @@ Every 250 ms, the buffer is copied and decoded.
 The **TFA Dostmann 30.3208** uses a Manchester-encoded signal.
 
 ### Protocol References
-- [pilight TFA protocol](https://manual.pilight.org/protocols/433.92/weather/tfa2017.html)  
-- [rtl_433 ambient weather decoder](https://github.com/merbanan/rtl_433/blob/master/src/devices/ambient_weather.c)
+- [pilight TFA protocol](https://manual.pilight.org/protocols/433.92/weather/tfa2017.html) (not TFA 30.3200)
+- [rtl_433 TFA protocol](https://github.com/merbanan/rtl_433/blob/master/src/devices/ambient_weather.c)
 
 ### Implementation Notes
 - Manchester decoding logic is based on: [victornpb/manch_decode](https://github.com/victornpb/manch_decode)  
 - The byte decoding was inspired by [d10i/TFA433](https://github.com/d10i/TFA433).  
-  I adapted thil library to run on ESP boards ([Spb2005/TFAReceiver](https://github.com/Spb2005/TFAReceiver/tree/main))  
-  and i have further improved (completly new structure) in this repository.
+  I adapted this library to run on ESP boards ([Spb2005/TFAReceiver](https://github.com/Spb2005/TFAReceiver/tree/main))  
+  and further restructured and improved it in this repository (not a library anymore).
 
 ## GT Decoder
 
 The **GT-WT-02** uses a simpler OOK (On-Off Keying) pulse-length encoding.
 
 ### Protocol References
-- [pilight Teknihall protocol](https://manual.pilight.org/protocols/433.92/weather/teknihall.html)  
+- [pilight GT-WT-02 decoder](https://manual.pilight.org/protocols/433.92/weather/teknihall.html)  
 - [rtl_433 GT-WT-02 decoder](https://github.com/merbanan/rtl_433/blob/master/src/devices/gt_wt_02.c)  
 
 The decoding of pulses and bytes was implemented entirely from scratch for this project.
 
 ## Extending with Additional Decoders
 
-It is possible to add your own custom decoders.  
+It is possible to add your own custom decoders. 
+
 **Recommendation:**
 - Create a function (similar to `checkTFA()` or `checkGT()`).
 - Call it inside `checkBuffer()`, which executes every 250 ms to process the ring buffer.
@@ -190,8 +196,8 @@ This project was inspired by and builds upon the following:
 
 ### Protocols
 - TFA: [pilight TFA protocol](https://manual.pilight.org/protocols/433.92/weather/tfa2017.html)  
-- TFA: [rtl_433 ambient weather decoder](https://github.com/merbanan/rtl_433/blob/master/src/devices/ambient_weather.c)  
-- GT: [pilight Teknihall protocol](https://manual.pilight.org/protocols/433.92/weather/teknihall.html)  
+- TFA: [rtl_433 TFA protocol](https://github.com/merbanan/rtl_433/blob/master/src/devices/ambient_weather.c)  
+- GT: [pilight GT-WT-02 decoder](https://manual.pilight.org/protocols/433.92/weather/teknihall.html)  
 - GT: [rtl_433 GT-WT-02 decoder](https://github.com/merbanan/rtl_433/blob/master/src/devices/gt_wt_02.c)  
 
 ### Code
