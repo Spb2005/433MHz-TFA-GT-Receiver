@@ -282,7 +282,7 @@ void loop() {
 void setupWiFi() {
   delay(10);
   Serial.println();
-  Serial.printf("Verbinde mit %s ...\n", ssid);
+  Serial.printf("Connecting with %s \n", ssid);
 
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
@@ -293,24 +293,23 @@ void setupWiFi() {
     Serial.print(".");
   }
 
-  Serial.println("\nWiFi verbunden");
-  Serial.print("IP-Adresse: ");
+  Serial.println("\nWiFi connected");
+  Serial.print("IP-adress: ");
   Serial.println(WiFi.localIP());
 }
 
 void reconnectMQTT() {
-  // Solange versuchen, bis verbunden
   while (!mqttClient.connected()) {
-    Serial.print("Verbinde mit MQTT Broker ... ");
+    Serial.print("Connecting with MQTT Broker ... ");
 
     if (mqttClient.connect("TFA_GT_433")) {
-      Serial.println("verbunden");
-      // optional: subscribe
-      // mqttClient.subscribe("TFA433/Commands");
+      Serial.println("connected");
+      char buf[] = { "{\"phase\":\"reconnect\"}" };
+      mqttClient.publish("TFA433/msg", buf);
     } else {
-      Serial.print("Fehler, rc=");
+      Serial.print("Error, rc=");
       Serial.print(mqttClient.state());
-      Serial.println(" -> Neuer Versuch in 1s");
+      Serial.println(" -> Trying again in 1s");
       delay(1000);
     }
   }
@@ -328,8 +327,6 @@ void mqttPub(Result res) {
            res.type);
 
   mqttClient.publish("TFA433/Data", messageBuffer);  // QoS0, retained = false
-  //Serial.print("MQTT gesendet: ");
-  //Serial.println(messageBuffer);
 }
 
 void checkBuffer() {
