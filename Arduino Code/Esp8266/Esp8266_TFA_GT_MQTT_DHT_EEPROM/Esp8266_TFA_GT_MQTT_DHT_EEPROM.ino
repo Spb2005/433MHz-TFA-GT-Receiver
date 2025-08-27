@@ -300,7 +300,7 @@ void loop() {
 void setupWiFi() {
   delay(10);
   Serial.println();
-  Serial.printf("Verbinde mit %s ...\n", ssid);
+  Serial.printf("Connecting with %s \n", ssid);
 
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
@@ -310,8 +310,8 @@ void setupWiFi() {
     Serial.print(".");
   }
 
-  Serial.println("\nWiFi verbunden");
-  Serial.print("IP-Adresse: ");
+  Serial.println("\nWiFi connected");
+  Serial.print("IP-adress: ");
   Serial.println(WiFi.localIP());
 }
 
