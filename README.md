@@ -115,6 +115,10 @@ Currently, there are six sketches:
   float Default_Hum_Adjust[8]  = { ... };
   ```
   These defaults are loaded if the EEPROM_INIT_MARKER is changed.
+  Additionally the esp send this when it reconnects:
+  ```json
+	{"phase":"reconnect"}
+  ```
   
 # Channel Setup
 
