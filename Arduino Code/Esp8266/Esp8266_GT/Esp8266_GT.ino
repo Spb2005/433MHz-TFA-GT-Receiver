@@ -99,24 +99,18 @@ void checkBuffer() {
   checkGT(localBuf, count);
 }
 
-int copyPulseBuffer(PulsePair* dest, int maxCount) {  //copy whole pulsebuffer
+int copyPulseBuffer(PulsePair* dest, int maxCount) {
   noInterrupts();
   int count = pulseBuffer.count;
   int readIndex = pulseBuffer.readIndex;
-  interrupts();
-
   if (count > maxCount) count = maxCount;
-
   for (int i = 0; i < count; i++) {
     dest[i] = pulseBuffer.buffer[readIndex];
     readIndex = (readIndex + 1) % BUFFER_SIZE;
   }
-
-  noInterrupts();
   pulseBuffer.readIndex = (pulseBuffer.readIndex + count) % BUFFER_SIZE;
   pulseBuffer.count -= count;
   interrupts();
-
   return count;
 }
 
