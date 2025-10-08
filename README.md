@@ -116,6 +116,11 @@ Currently, there are six sketches:
   ```
   These defaults are loaded if the EEPROM_INIT_MARKER is changed.
   
+  Additionally the esp send this when it reconnects:
+  ```json
+	{"phase":"reconnect"}
+  ```
+  
 # Channel Setup
 
 My setup uses **8 channels**:
