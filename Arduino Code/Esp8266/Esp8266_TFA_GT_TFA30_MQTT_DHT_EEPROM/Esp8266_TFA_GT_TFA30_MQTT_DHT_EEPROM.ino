@@ -5,7 +5,9 @@
 
 #define RXPIN 13
 #define BUFFER_SIZE 1024
-#define CHANNEL_OFFSET 7
+#define DHT22Channel 7
+#define GTCHANNEL_OFFSET 7
+#define TFA30ChannelOffset 8
 #define USE_CELSIUS 1
 
 #define DHTPIN 12
@@ -22,25 +24,30 @@
 #define MANCHESTER_BUF_SIZE 30  //5* 6 Bytes
 
 //GT defines
-#define MAX_DURATION 10000  // µs
+#define MAX_DURATION 11000  // µs
 #define MIN_DURATION 100    // µs
 #define PULSE_START_MIN_DURATION 7500
 #define MAX_PULSE_DURATION 7000
 #define BIT_THRESHOLD 3000
-#define NUM_PULSES 38  // Anzahl erwarteter Datenpulse
+//GT
+#define NUM_PULSES 38
 #define NUM_BITS 37
 #define NUM_BYTES 5  // 8*5 bytes = 40 bits > 37 bits
+//TFA30
+#define TFA30_NUM_PULSES 29
+#define TFA30_NUM_BITS 28
+#define TFA30_NUM_BYTES 4
 
 //EEPROM
 #define EEPROM_SIZE 128  // 1 + 8*4 + 8*4 = 65 < 128
 #define EEPROM_INIT_MARKER 0x42
-#define EEPROM_MARKER_ADDR 0                     // 1 Byte Marker
-#define EEPROM_TEMP_ADDR 1                       // 8 × float (32 Byte)
-#define EEPROM_HUM_ADDR (EEPROM_TEMP_ADDR + 32)  // = 33
+#define EEPROM_MARKER_ADDR 0  // 1 Byte Marker
+#define EEPROM_TEMP_ADDR 1    // 8 × float (40 Byte)
+#define EEPROM_HUM_ADDR (EEPROM_TEMP_ADDR + 40)
 
 const char* ssid = "YOUR_SSID";
-const char* password = "YOUR_PASSWORD";
-const char* MQTT_IP = "YOUR_MQTT_IP";
+const char* password = "YOUR_WIFI_PASSWORD";
+const char* MQTT_IP = "YOU_MQTT_IP";
 
 WiFiClient espClient;
 PubSubClient mqttClient(espClient);
@@ -78,6 +85,7 @@ unsigned long lastCheck = 0;
 unsigned long lastTFATime = 0;
 unsigned long GTTime = 0;
 unsigned long DHTTime = 0;
+unsigned long TFA30Time = 0;
 
 //TFA Variables
 bool TFAisRepeat = true;
@@ -95,11 +103,22 @@ int GTbufCount = 0;
 uint32_t GTpulses[NUM_PULSES + 2];
 byte GTbitsPacked[NUM_BYTES];
 
+// TFA30 Variables
+int TFA30pulseIndex = 0;
+bool TFA30receive = false;
+bool TFA30PulseTrainReady = false;
+bool TFA30BitsReady = false;
+bool TFA30validData = false;
+int TFA30bufIndex = 0;
+int TFA30bufCount = 0;
+uint32_t TFA30pulses[TFA30_NUM_PULSES + 2];
+byte TFA30bitsPacked[TFA30_NUM_BYTES];
+
 //Offset variables
-float Temp_Adjust[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
-float Hum_Adjust[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
-float Default_Temp_Adjust[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
-float Default_Hum_Adjust[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
+float Temp_Adjust[9] = { 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+float Hum_Adjust[9] = { 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+float Default_Temp_Adjust[9] = { 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0.0, 0.0, 0.0 };
+float Default_Hum_Adjust[9] = { 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 };
 
 ICACHE_RAM_ATTR void handleInterrupt() {
   uint32_t now = micros();
@@ -184,7 +203,7 @@ bool isLong(uint16_t t) {
 void decode(bool s, uint16_t t) {
 
   if (status != WAIT_PREAMBLE && decodeStartTime > 0) {
-    if (millis() - decodeStartTime > DECODE_TIMEOUT_MS) { // decoder timeout
+    if (millis() - decodeStartTime > DECODE_TIMEOUT_MS) {  // decoder timeout
       resetDecoder();
       return;
     }
@@ -203,8 +222,8 @@ void decode(bool s, uint16_t t) {
       } else if (isLong(t) && shortCount > 18) {  // if 18 short pulses in sucsession found, look for first long pulse and skip the next long pulse
         status = SKIP_LONG;
         shortCount = 0;
-        decodeStartTime = millis(); //store time for timeout
-      } else {  //long pulse too early
+        decodeStartTime = millis();  //store time for timeout
+      } else {                       //long pulse too early
         shortCount = 0;
       }
       break;
@@ -365,6 +384,8 @@ void checkBuffer() {
   checkTFA(localBuf, count);
 
   checkGT(localBuf, count);
+
+  checkTFA30(localBuf, count);
 }
 
 int copyPulseBuffer(PulsePair* dest, int maxCount) {
@@ -597,7 +618,7 @@ Result GTgetData() {
   data.type = 1;
   data.id = binToDec(0, 7, GTbitsPacked);
   data.battery = !getBit(8, GTbitsPacked);
-  data.channel = binToDec(10, 11, GTbitsPacked) + 1 + CHANNEL_OFFSET;
+  data.channel = binToDec(10, 11, GTbitsPacked) + 1 + GTCHANNEL_OFFSET;
   float tempC = binToSigned12(12, GTbitsPacked) / 10.0;
   data.temperature = (USE_CELSIUS) ? tempC : (9.0 / 5.0 * tempC) + 32;
   data.humidity = binToDec(24, 30, GTbitsPacked);
@@ -629,6 +650,172 @@ inline bool getBitPacked(int index) {
   return (GTbitsPacked[byteIndex] >> bitIndex) & 1;
 }
 
+//TFA30 functions
+void checkTFA30(PulsePair localBuf[], int count) {
+  TFA30bufIndex = 0;
+
+  while (checkForPulseTrainTFA30(localBuf, count)) {
+
+    unsigned long time = millis();
+    if (time - TFA30Time < 1000) {
+      continue;
+    }
+
+    TFA30getBinary();
+    if (TFA30BitsReady) {
+      TFA30Checksum();
+      if (TFA30validData) {
+        TFA30Time = millis();
+        Result res = TFA30getData();
+        mqttPub(res);
+        printData(res);
+      }
+    }
+
+    TFA30PulseTrainReady = false;
+    TFA30BitsReady = false;
+    TFA30validData = false;
+  }
+}
+
+bool checkForPulseTrainTFA30(PulsePair localBuf[], int count) {
+  if (TFA30bufIndex == 0) {
+    TFA30bufCount = count;
+    TFA30pulseIndex = 0;
+    TFA30receive = false;
+  }
+
+  while (TFA30bufIndex < TFA30bufCount) {
+    if (localBuf[TFA30bufIndex].level) {  //skip high pulselength
+      TFA30bufIndex++;
+      continue;
+    }
+
+    uint32_t durationLow = localBuf[TFA30bufIndex].time;
+    TFA30bufIndex++;
+
+    if (durationLow > MAX_DURATION || durationLow < MIN_DURATION) {  //pulse is too long or too short -> start over
+      TFA30pulseIndex = 0;
+      TFA30receive = false;
+      continue;
+    }
+
+    if (durationLow >= PULSE_START_MIN_DURATION && durationLow <= MAX_DURATION) {  // pulse has header or footer length
+      if (TFA30receive) {
+        // End of pulsetrain
+        TFA30pulses[TFA30pulseIndex] = durationLow;
+        TFA30receive = false;
+
+        if (TFA30pulseIndex == TFA30_NUM_PULSES) {
+          // Pulsetrain has correct length
+          TFA30PulseTrainReady = true;
+          return 1;
+        } else {
+          TFA30pulseIndex = 0;
+        }
+      } else {
+        // Start of pulsetrain
+        TFA30pulseIndex = 0;
+        TFA30receive = true;
+      }
+    }
+
+    if (TFA30receive) {  //Adding bits to buffer
+      if (TFA30pulseIndex < TFA30_NUM_PULSES + 2) {
+        TFA30pulses[TFA30pulseIndex++] = durationLow;
+      } else {
+        TFA30receive = false;
+        TFA30pulseIndex = 0;
+      }
+    }
+  }
+
+  TFA30bufIndex = 0;  // no more pulsetrains found
+  return 0;
+}
+
+void TFA30getBinary() {
+  memset(TFA30bitsPacked, 0, sizeof(TFA30bitsPacked));
+
+  int bitIndex = 0;
+
+  for (int i = 1; i < TFA30_NUM_PULSES; i++) {
+    if (TFA30pulses[i] > MAX_PULSE_DURATION || bitIndex >= TFA30_NUM_BITS) {
+      Serial.println("Error!");
+      TFA30BitsReady = false;
+      return;
+    }
+
+    if (TFA30pulses[i] >= BIT_THRESHOLD) {
+      TFA30setBitPacked(bitIndex, 1);
+    }
+    // if pulse is unter BIT_THRESHOLD bit stays 0
+
+    bitIndex++;
+  }
+  TFA30BitsReady = true;
+}
+
+void TFA30Checksum() {
+  uint8_t* b = TFA30bitsPacked;
+  int sum_nibbles = 0;
+  //sum of all nibbles, except the first one(checksum)
+  for (int i = 1; i < 7; i++) {
+    int nibble;
+    if (i % 2 == 0) {
+      nibble = b[i / 2] >> 4;
+    } else {
+      nibble = b[i / 2] & 0xF;
+    }
+    sum_nibbles += nibble;
+  }
+  //calculate Checksum
+  int calculated = (sum_nibbles - 1) & 0xF;
+
+  // expected checksum from first nibble
+  int expected = b[0] >> 4;
+
+  if (expected == calculated) {
+    TFA30validData = true;
+    //Serial.println("Checksum ok!");
+  } else {
+    TFA30validData = false;
+    Serial.printf("TFA30 Checksum not OK! expected: %d calculated: %d\n", expected, calculated);
+  }
+}
+
+Result TFA30getData() {
+  Result data;
+  data.type = 3;
+  data.id = binToDec(4, 11, TFA30bitsPacked);
+  data.battery = getBit(26, TFA30bitsPacked);
+  data.channel = binToDec(24, 25, TFA30bitsPacked) + TFA30ChannelOffset;
+  data.temperature = binToSigned12(12, TFA30bitsPacked) / 10.0;
+  data.humidity = 0;
+
+  data.temperature += Temp_Adjust[data.channel - 1];
+  data.humidity += Hum_Adjust[data.channel - 1];
+
+  return data;
+}
+
+inline void TFA30setBitPacked(int index, bool value) {
+  int byteIndex = index / 8;
+  int bitIndex = 7 - (index % 8);  // MSB first
+  if (value) {
+    TFA30bitsPacked[byteIndex] |= (1 << bitIndex);
+  } else {
+    TFA30bitsPacked[byteIndex] &= ~(1 << bitIndex);
+  }
+}
+
+inline bool TFA30getBitPacked(int index) {
+  int byteIndex = index / 8;
+  int bitIndex = 7 - (index % 8);
+  return (TFA30bitsPacked[byteIndex] >> bitIndex) & 1;
+}
+
+//DHT Function
 void readDHT() {
   float t = dht.readTemperature();
   float h = dht.readHumidity();
@@ -646,7 +833,7 @@ void readDHT() {
     dhtres.type = 1;
     dhtres.id = 1;
     dhtres.battery = 1;
-    dhtres.channel = 7;
+    dhtres.channel = DHT22Channel;
 
     mqttPub(dhtres);
     printData(dhtres);
@@ -664,7 +851,7 @@ void loadEEPROM() {
     Serial.println("EEPROM: Offsets loaded");
   } else {  //EEPROM invalid write default values
 
-    for (int i = 0; i < 8; ++i) {
+    for (int i = 0; i < 9; ++i) {
       Temp_Adjust[i] = Default_Temp_Adjust[i];
       Hum_Adjust[i] = Default_Hum_Adjust[i];
     }
@@ -724,7 +911,7 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
   // send original array
   sendAdjustArrays("before");
 
-  if (ch >= 1 && ch <= 8) {
+  if (ch >= 1 && ch <= 9) {
     if (type == "temp") {
       Temp_Adjust[ch - 1] = offset;
     } else if (type == "hum") {
@@ -744,14 +931,14 @@ void sendAdjustArrays(const char* phase) {
   json += phase;
   json += "\",";
   json += "\"Temp_Adjust\":[";
-  for (int i = 0; i < 8; i++) {
+  for (int i = 0; i < 9; i++) {
     json += String(Temp_Adjust[i], 2);
-    if (i < 7) json += ",";
+    if (i < 8) json += ",";
   }
   json += "],\"Hum_Adjust\":[";
-  for (int i = 0; i < 8; i++) {
+  for (int i = 0; i < 9; i++) {
     json += String(Hum_Adjust[i], 2);
-    if (i < 7) json += ",";
+    if (i < 8) json += ",";
   }
   json += "]}";
 

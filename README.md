@@ -1,14 +1,25 @@
 # TFA-GT-433MHz-Decoder
 
+### 🔔 Update Notice
+
+> **Update:** Support for the **TFA Dostmann 30.3133** sensor has been added.  
+>  
+> To avoid confusion with the existing TFA Manchester-encoded sensors (e.g. **TFA 30.3208**), this sensor is referred to as **`TFA30`** throughout the code and the README.  
+>  
+> Please note that the current implementation is **not optimal**: the **TFA30 decoder is very similar to the GT-WT-02 decoder**, but both are implemented separately and therefore duplicate a lot of functionality.  
+>  
+> This could be improved with a **larger code overhaul and refactoring**, but I currently do not plan to do this.
+
 ## Introduction
 This project provides several sketches that can **receive and decode signals** from  
 
 - **TFA Dostmann 30.3208.02**  
+- **TFA Dostmann 30.3133**
 - **Global Tronics GT-WT-02**  
 
 weather sensors and publish their data to an **MQTT server**.  
 
-I mainly use the full-featured sketch (`Esp8266_TFA_GT_MQTT_DHT_EEPROM`) to send all temperature and humidity data to **Node-RED**, store it in an **InfluxDB**, and visualize it on the Node-Red dashboard.
+I mainly use the full-featured sketch (`Esp8266_TFA_GT_TFA30_MQTT_DHT_EEPROM`) to send all temperature and humidity data to **Node-RED**, store it in an **InfluxDB**, and visualize it on the Node-Red dashboard.
 
 ### Why this project is different
 Most 433 MHz decoder libraries decode signals **inside the interrupt service routine (ISR)**, which can block other tasks.  
@@ -39,6 +50,7 @@ Make sure to connect the receiver to an interrupt-capable pin:
 ### Weather Sensors
 **Tested sensors:**  
 - TFA Dostmann 30.3208.02  
+- TFA Dostmann 30.3133
 - Global Tronics GT-WT-02  
 
 **Other sensors may also work (not tested):**
@@ -49,6 +61,9 @@ Similar to **TFA (Manchester-encoded):**
 - SwitchDoc Labs F016TH  
 
 > You may need to adjust the `TFA_TYPE` or `MANCHESTER_CLOCK` definitions.  
+
+Similar to **TFA30 (OOK-encoded):**
+- TFA-Pool-thermometer 30.3160  
 
 Similar to **GT (OOK-encoded):**
 - Other GT-WT-02 clones from Lidl (AURIO), Teknihall, etc.  
@@ -68,13 +83,16 @@ Make sure the following libraries are installed in the Arduino IDE (via Library 
 
 ## Available Code Examples
 
-Currently, there are six sketches:
+Currently, there are eight sketches:
 
 - **`Esp8266_GT`**  
   Only GT decoder  
 
 - **`Esp8266_TFA`**  
   Only TFA decoder  
+
+- **`Esp8266_TFA_30.3133`**  
+  Only TFA 30.3133 decoder
 
 - **`Esp8266_TFA_GT`**  
   Both decoders combined, one receiver  
@@ -120,6 +138,8 @@ Currently, there are six sketches:
   ```json
 	{"phase":"reconnect"}
   ```
+- **`Esp8266_TFA_GT_TFA3_MQTT_DHT_EEPROM`** 
+  builts on the Esp8266_TFA_GT_MQTT_DHT_EEPROM code and integrates the TFA 30.3133 decoder
   
 # Channel Setup
 
@@ -127,12 +147,14 @@ My setup uses **8 channels**:
 
 - 6 × TFA (up to 8 supported)  
 - 1 × DHT (up to 1 supported)  
-- 1 × GT (up to 3 supported)  
+- 1 × GT (up to 3 supported) 
+- 1 x TFA30 (up to 3 supported) 
 
 You can configure:
 
-- The **DHT channel** in `readDHT()`  
-- The **GT channel offset** via `CHANNEL_OFFSET`  
+- The **DHT channel** via `DHT22Channel`  
+- The **GT channel offset** via `GTCHANNEL_OFFSET`  
+- The **TFA30 channel offset** via `TFA30ChannelOffset` 
 
 # Pulse Collection
 
@@ -174,6 +196,15 @@ The **TFA Dostmann 30.3208** uses a Manchester-encoded signal.
   I adapted this library to run on ESP boards ([Spb2005/TFAReceiver](https://github.com/Spb2005/TFAReceiver/tree/main))  
   and further restructured and improved it in this repository (not a library anymore).
 
+The **TFA Dostmann 30.3133** uses a simpler OOK (On-Off Keying) pulse-length encoding.
+
+### Protocol References
+- [rtl_433 TFA30 protocol](https://github.com/merbanan/rtl_433/blob/master/src/devices/tfa_pool_thermometer.c)
+
+### Implementation Notes
+- I analysed the protoll and later found out, that it is basically the same as the TFA-Pool-thermometer 30.3160.
+- The decoding of pulses and bytes is very simmilar to that of the GT-WT-02 sensor
+
 ## GT Decoder
 
 The **GT-WT-02** uses a simpler OOK (On-Off Keying) pulse-length encoding.
@@ -199,6 +230,7 @@ This project was inspired by and builds upon the following:
 ### Protocols
 - TFA: [pilight TFA protocol](https://manual.pilight.org/protocols/433.92/weather/tfa2017.html)  
 - TFA: [rtl_433 TFA protocol](https://github.com/merbanan/rtl_433/blob/master/src/devices/ambient_weather.c)  
+- TFA30:[rtl_433 TFA30 protocol](https://github.com/merbanan/rtl_433/blob/master/src/devices/tfa_pool_thermometer.c)  
 - GT: [pilight GT-WT-02 decoder](https://manual.pilight.org/protocols/433.92/weather/teknihall.html)  
 - GT: [rtl_433 GT-WT-02 decoder](https://github.com/merbanan/rtl_433/blob/master/src/devices/gt_wt_02.c)  
 
