@@ -138,8 +138,8 @@ Currently, there are eight sketches:
   ```json
 	{"phase":"reconnect"}
   ```
-- **`Esp8266_TFA_GT_TFA3_MQTT_DHT_EEPROM`** 
-  builts on the Esp8266_TFA_GT_MQTT_DHT_EEPROM code and integrates the TFA 30.3133 decoder
+- **`Esp8266_TFA_GT_TFA3_MQTT_DHT_EEPROM`**
+  Builts on the Esp8266_TFA_GT_MQTT_DHT_EEPROM code and integrates the TFA 30.3133 decoder
   
 # Channel Setup
 
