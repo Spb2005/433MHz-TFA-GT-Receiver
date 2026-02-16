@@ -266,6 +266,8 @@ int copyPulseBuffer(PulsePair* dest, int maxCount) {
 
 //TFA functions
 void checkTFA(PulsePair localBuf[], int count) {
+  Manch::resetDecoder();  //prevent the decoder to freeze
+
   for (int i = 0; i < count; i++) {
     Manch::decode(localBuf[i].level, localBuf[i].time);
   }
@@ -560,7 +562,7 @@ void printData(Result res) {
   Serial.print("Temperature: ");
   if (USE_CELSIUS) {
     Serial.printf("%.1f °C\n", res.temperature);
-  }else{
+  } else {
     Serial.printf("%.1f °F\n", res.temperature);
   }
   Serial.print("Humidity: ");

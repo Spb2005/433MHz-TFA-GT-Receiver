@@ -339,6 +339,8 @@ int copyPulseBuffer(PulsePair* dest, int maxCount) {
 
 //TFA functions
 void checkTFA(PulsePair localBuf[], int count) {
+  Manch::resetDecoder();  //prevent the decoder to freeze
+
   for (int i = 0; i < count; i++) {
     Manch::decode(localBuf[i].level, localBuf[i].time);
   }

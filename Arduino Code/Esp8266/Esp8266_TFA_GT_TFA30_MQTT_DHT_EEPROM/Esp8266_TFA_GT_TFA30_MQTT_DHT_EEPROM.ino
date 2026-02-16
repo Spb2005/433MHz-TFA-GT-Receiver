@@ -405,6 +405,8 @@ int copyPulseBuffer(PulsePair* dest, int maxCount) {
 
 //TFA functions
 void checkTFA(PulsePair localBuf[], int count) {
+  Manch::resetDecoder(); //prevent the decoder to freeze
+
   for (int i = 0; i < count; i++) {
     Manch::decode(localBuf[i].level, localBuf[i].time);
   }
@@ -874,15 +876,18 @@ void saveEEPROM() {
 
 //MQTT commands
 void mqttCallback(char* topic, byte* payload, unsigned int length) {
-  payload[length] = '\0';
-  String msg = String((char*)payload);
+  char msgBuffer[length + 1];
+  memcpy(msgBuffer, payload, length);
+  msgBuffer[length] = '\0';
+
+  String msg = String(msgBuffer);
 
   Serial.print("MQTT received: ");
   Serial.print(msg);
   Serial.print(" on topic:  ");
   Serial.println(topic);
 
-  if (String(topic) != "TFA433/cmd") {
+  if (strncmp(topic, "TFA433/cmd", 10) != 0) {
     return;
   }
 
@@ -926,23 +931,22 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
 
 void sendAdjustArrays(const char* phase) {
   char buf[512];
-  String json = "{";
-  json += "\"phase\":\"";
-  json += phase;
-  json += "\",";
-  json += "\"Temp_Adjust\":[";
-  for (int i = 0; i < 9; i++) {
-    json += String(Temp_Adjust[i], 2);
-    if (i < 8) json += ",";
-  }
-  json += "],\"Hum_Adjust\":[";
-  for (int i = 0; i < 9; i++) {
-    json += String(Hum_Adjust[i], 2);
-    if (i < 8) json += ",";
-  }
-  json += "]}";
+  int pos = 0;
 
-  json.toCharArray(buf, sizeof(buf));
+  pos += snprintf(buf + pos, sizeof(buf) - pos, "{\"phase\":\"%s\",\"Temp_Adjust\":[", phase);
+
+  for (int i = 0; i < 9; i++) {
+    pos += snprintf(buf + pos, sizeof(buf) - pos, "%.2f%s", Temp_Adjust[i], (i < 8) ? "," : "");
+  }
+
+  pos += snprintf(buf + pos, sizeof(buf) - pos, "],\"Hum_Adjust\":[");
+
+  for (int i = 0; i < 9; i++) {
+    pos += snprintf(buf + pos, sizeof(buf) - pos, "%.2f%s", Hum_Adjust[i], (i < 8) ? "," : "");
+  }
+
+  snprintf(buf + pos, sizeof(buf) - pos, "]}");
+
   mqttClient.publish("TFA433/msg", buf);
 }
 

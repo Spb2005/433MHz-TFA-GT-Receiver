@@ -50,7 +50,7 @@ ICACHE_RAM_ATTR void handleInterrupt() {
   uint32_t now = micros();
   uint32_t duration = now - lastChange;
   lastChange = now;
-  
+
   uint32_t gpioState = GPIO_REG_READ(GPIO_IN_ADDRESS);
   bool pinState = gpioState & (1 << RXPIN);
 
@@ -62,7 +62,7 @@ ICACHE_RAM_ATTR void handleInterrupt() {
     pulseBuffer.writeIndex = next;
     pulseBuffer.count++;
 
-  } else { // buffer full
+  } else {  // buffer full
     bufferOverflow = true;
   }
 }
@@ -240,9 +240,10 @@ int copyPulseBuffer(PulsePair* dest, int maxCount) {
 }
 
 void checkTFA(PulsePair localBuf[], int count) {
-  
+  Manch::resetDecoder();  //prevent the decoder to freeze
+
   for (int i = 0; i < count; i++) {
-    Manch::decode(localBuf[i].level, localBuf[i].time); 
+    Manch::decode(localBuf[i].level, localBuf[i].time);
   }
 
   while (Manch::available() >= 6) {
